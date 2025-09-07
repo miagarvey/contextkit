@@ -1,0 +1,17 @@
+README.md
+pyproject.toml
+contextkit/__init__.py
+contextkit/cli.py
+contextkit/embeds.py
+contextkit/faiss_store.py
+contextkit/index.py
+contextkit/paths.py
+contextkit/schema_fp.py
+contextkit/summarize.py
+contextkit/utils.py
+contextkit.egg-info/PKG-INFO
+contextkit.egg-info/SOURCES.txt
+contextkit.egg-info/dependency_links.txt
+contextkit.egg-info/entry_points.txt
+contextkit.egg-info/requires.txt
+contextkit.egg-info/top_level.txt

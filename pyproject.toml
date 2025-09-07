@@ -1,0 +1,39 @@
+[project]
+name = "contextkit"
+version = "0.1.0"
+description = "Content-addressed context packs for LLM data analysis (MVP)"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name="Your Name", email="you@example.com"}]
+
+dependencies = [
+    "typer>=0.12.3",
+    "rich>=13.7.1",
+    "pydantic>=2.8.2",
+    "blake3>=0.4.1",
+    "ruamel.yaml>=0.18.6",
+    "markdown-it-py>=3.0.0",
+    "sqlite-utils>=3.37",
+    "sentence-transformers>=3.0.1",
+    "numpy>=1.26.4",
+    "pandas>=2.2.2",
+    "psycopg[binary]>=3.2.1",
+    "python-dotenv>=1.0.1",
+    "tiktoken>=0.7.0",
+    "orjson>=3.10.7",
+    "scikit-learn>=1.0.0"
+]
+
+[project.scripts]
+ctx = "contextkit.cli:app"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["contextkit*"]
+
+[tool.uv]
+# If you use uv, this section is harmless; otherwise ignore.

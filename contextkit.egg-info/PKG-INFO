@@ -1,0 +1,58 @@
+Metadata-Version: 2.4
+Name: contextkit
+Version: 0.1.0
+Summary: Content-addressed context packs for LLM data analysis (MVP)
+Author-email: Your Name <you@example.com>
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: typer>=0.12.3
+Requires-Dist: rich>=13.7.1
+Requires-Dist: pydantic>=2.8.2
+Requires-Dist: blake3>=0.4.1
+Requires-Dist: ruamel.yaml>=0.18.6
+Requires-Dist: markdown-it-py>=3.0.0
+Requires-Dist: sqlite-utils>=3.37
+Requires-Dist: sentence-transformers>=3.0.1
+Requires-Dist: numpy>=1.26.4
+Requires-Dist: pandas>=2.2.2
+Requires-Dist: psycopg[binary]>=3.2.1
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: tiktoken>=0.7.0
+Requires-Dist: orjson>=3.10.7
+Requires-Dist: scikit-learn>=1.0.0
+
+# ContextKit (MVP)
+
+Content-addressed, reproducible **Context Packs** for reusing LLM analysis sessions.
+
+## Quick start
+
+```bash
+# (recommended) using uv
+uv venv && source .venv/bin/activate
+uv pip install -e .
+
+# or pip
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
+
+```bash
+# Initialize folders (optional; created lazily)
+mkdir -p packs chats artifacts/sql artifacts/code artifacts/text resources/schema resources/data_manifests index .contextkit
+
+# Fingerprint schema (example: Postgres)
+ctx schema fingerprint --from postgres://user:pass@host:5432/dbname
+
+# Save a chat
+ctx save-chat --project demo --title "Returns vs LTV" --from samples/example_chat.md --schema postgres://user:pass@host:5432/dbname
+
+# Summarize to a ContextPack
+ctx summarize chats/2025-09-07--returns-vs-ltv.md
+
+# Find & inject
+ctx find "ltv returns cohort" --project demo
+ctx inject packs/returns-vs-ltv--<hash>.md --validate-schema postgres://user:pass@host:5432/dbname
+```
+
+Set `OPENAI_API_KEY` in `.env` to enable LLM summarization; otherwise a heuristic summarizer is used.

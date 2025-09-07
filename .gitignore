@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+index/*
+!.keep
+.contextkit/*
+.env
+*.DS_Store
+*.log
+*.sqlite
+idea.md
