@@ -41,6 +41,10 @@ ctx find "ltv cohort retention"
 
 # Inject into new session
 ctx inject packs/customer-ltv-analysis--abc123.md
+
+# Or use the web interface
+ctx web
+# Then open http://localhost:8000 in your browser
 ```
 
 ## Commands

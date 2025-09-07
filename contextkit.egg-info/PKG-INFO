@@ -20,39 +20,67 @@ Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: tiktoken>=0.7.0
 Requires-Dist: orjson>=3.10.7
 Requires-Dist: scikit-learn>=1.0.0
+Requires-Dist: openai>=1.0.0
+Requires-Dist: fastapi>=0.104.0
+Requires-Dist: uvicorn[standard]>=0.24.0
 
-# ContextKit (MVP)
+# ContextKit
 
-Content-addressed, reproducible **Context Packs** for reusing LLM analysis sessions.
+Content-addressed storage for reusable LLM context. Save chat sessions, extract artifacts, and retrieve relevant context for new analyses.
+
+## What it does
+
+ContextKit solves the problem of losing valuable context when LLM conversations become too long or hit token limits. Instead of starting over, you can capture, organize, and reuse your analytical work.
+
+**Core Workflow:**
+- **Capture**: Save LLM chat sessions as structured markdown with automatic content hashing
+- **Extract**: Automatically identify and store SQL queries, Python code, JavaScript, YAML configs, and other artifacts
+- **Distill**: Create compact "ContextPacks" - structured summaries optimized for LLM reuse
+- **Search**: Find relevant previous work using semantic similarity combined with metadata filters
+- **Inject**: Copy-paste ready context into new LLM sessions with full provenance tracking
+
+**Key Features:**
+- Content-addressed storage using BLAKE3 hashing for deduplication and integrity
+- Enhanced artifact extraction supporting 15+ programming languages with metadata analysis
+- Schema fingerprinting to detect database changes and assess ContextPack compatibility
+- Hybrid search combining vector embeddings with traditional metadata filtering
+- LLM-powered summarization with graceful fallback to heuristic methods
+- Schema drift detection to warn when database structures have changed
+
+Perfect for data analysts, researchers, and developers who frequently use LLMs for complex, multi-step analyses involving databases, code generation, and iterative problem-solving.
 
 ## Quick start
 
 ```bash
-# (recommended) using uv
+# Install
 uv venv && source .venv/bin/activate
 uv pip install -e .
 
-# or pip
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
+# Save a chat session
+ctx save-chat --project retail --title "Customer LTV Analysis" --from chat.md
+
+# Create reusable context pack
+ctx summarize chats/2025-09-07--customer-ltv-analysis.md
+
+# Find relevant context
+ctx find "ltv cohort retention"
+
+# Inject into new session
+ctx inject packs/customer-ltv-analysis--abc123.md
+
+# Or use the web interface
+ctx web
+# Then open http://localhost:8000 in your browser
 ```
 
-```bash
-# Initialize folders (optional; created lazily)
-mkdir -p packs chats artifacts/sql artifacts/code artifacts/text resources/schema resources/data_manifests index .contextkit
+## Commands
 
-# Fingerprint schema (example: Postgres)
-ctx schema fingerprint --from postgres://user:pass@host:5432/dbname
+- `ctx save-chat` - Ingest markdown chat, extract artifacts, update index
+- `ctx summarize` - Create structured ContextPack from chat
+- `ctx find` - Search chats and packs by content and metadata
+- `ctx inject` - Output copy-pasteable context with provenance
+- `ctx auto` - **Automatically compose relevant context for any prompt**
+- `ctx schema fingerprint` - Snapshot database schema for compatibility tracking
+- `ctx schema-drift` - Detect schema changes and assess ContextPack compatibility
 
-# Save a chat
-ctx save-chat --project demo --title "Returns vs LTV" --from samples/example_chat.md --schema postgres://user:pass@host:5432/dbname
-
-# Summarize to a ContextPack
-ctx summarize chats/2025-09-07--returns-vs-ltv.md
-
-# Find & inject
-ctx find "ltv returns cohort" --project demo
-ctx inject packs/returns-vs-ltv--<hash>.md --validate-schema postgres://user:pass@host:5432/dbname
-```
-
-Set `OPENAI_API_KEY` in `.env` to enable LLM summarization; otherwise a heuristic summarizer is used.
+Set `OPENAI_API_KEY` in `.env` for LLM-powered summarization.

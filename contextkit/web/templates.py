@@ -1,0 +1,76 @@
+"""HTML templates for the ContextKit web interface."""
+
+def get_main_template() -> str:
+    """Return the main chat interface HTML template."""
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ContextKit Assistant</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="header">
+        <h1>ContextKit Assistant</h1>
+        <div class="controls">
+            <div class="control-group">
+                <label for="contextkit-toggle" class="control-label">ContextKit</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="contextkit-toggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <input type="text" id="project-input" class="project-input" placeholder="Project (optional)">
+        </div>
+    </div>
+    
+    <div class="chat-container">
+        <div class="messages-area" id="messages-area">
+            <div class="message assistant">
+                <div>Hello! I'm your ContextKit-powered assistant. I can help you with data analysis, code generation, and more. When ContextKit is enabled, I'll automatically find and use relevant context from your previous conversations.</div>
+                <div class="message-meta">
+                    Try asking me about your data, uploading files, or connecting your database schema.
+                </div>
+            </div>
+        </div>
+        
+        <div class="typing-indicator" id="typing-indicator">
+            <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        
+        <div class="input-area">
+            <div class="attachments" id="attachments"></div>
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="message-input" 
+                        class="message-input" 
+                        placeholder="Type your message..."
+                        rows="1"
+                    ></textarea>
+                    <button class="attach-button" id="attach-button" title="Attach files">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.64 16.2a2 2 0 0 1-2.83-2.83l8.49-8.49"/>
+                        </svg>
+                    </button>
+                    <input type="file" id="file-input" class="file-input" multiple 
+                           accept=".txt,.md,.sql,.py,.js,.json,.csv,.xlsx,.pdf">
+                </div>
+                <button class="send-button" id="send-button" title="Send message">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m22 2-7 20-4-9-9-4Z"/>
+                        <path d="M22 2 11 13"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/chat.js"></script>
+</body>
+</html>"""
