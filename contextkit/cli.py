@@ -11,6 +11,7 @@ from contextkit.index import rebuild_index, connect, query
 from contextkit.faiss_store import build_faiss, search
 from contextkit.schema_fp import introspect_postgres, save_schema_snapshot
 from contextkit.summarize import summarize_chat
+from contextkit.auto import auto_compose_context
 
 app = typer.Typer(help="ContextKit CLI (MVP)")
 
@@ -187,19 +188,196 @@ def inject(path: Path, validate_schema: Optional[str] = typer.Option(None, "--va
     """Print a copy-pasteable pack with a small provenance banner. If validate-schema is provided, will print a simple warning on mismatch."""
     from contextkit.utils import load_md
     from contextkit.schema_fp import introspect_postgres, fingerprint_schema_json
+    from contextkit.schema_drift import check_pack_compatibility
+    
     front, body = load_md(path)
     banner = f"[CONTEXTKIT] Using pack {front.get('title')} | pack_hash={front.get('hash')} | schema_fp={front.get('schema_fingerprint')}"
     print(banner)
+    
     if validate_schema:
         if validate_schema.startswith("postgres://") or validate_schema.startswith("postgresql://"):
-            snap = introspect_postgres(validate_schema)
-            current = fingerprint_schema_json(snap)
+            current_schema = introspect_postgres(validate_schema)
         else:
             import json as _json
-            p = Path(validate_schema); current = fingerprint_schema_json(_json.loads(p.read_text(encoding='utf-8')))
-        if current != front.get("schema_fingerprint"):
-            print("[yellow][SCHEMA WARNING][/yellow] Current schema fingerprint differs; verify canonical definitions and SQL.")
+            p = Path(validate_schema)
+            current_schema = _json.loads(p.read_text(encoding='utf-8'))
+        
+        compatibility, notes = check_pack_compatibility(path, current_schema)
+        
+        if compatibility == "identical":
+            print("[green][SCHEMA OK][/green] Schema fingerprints match exactly")
+        elif compatibility == "compatible":
+            print("[yellow][SCHEMA COMPATIBLE][/yellow] Schema has backward-compatible changes")
+            for note in notes[:3]:  # Show first 3 changes
+                print(f"  {note}")
+        elif compatibility == "breaking":
+            print("[red][SCHEMA WARNING][/red] Breaking schema changes detected")
+            for note in notes[:5]:  # Show first 5 changes
+                print(f"  {note}")
+        else:
+            print("[yellow][SCHEMA UNKNOWN][/yellow] Cannot determine compatibility")
+            for note in notes:
+                print(f"  {note}")
+    
     print("\n" + body)
+
+@app.command("schema-drift")
+def schema_drift(
+    action: str = typer.Argument(..., help="scan | check"),
+    current_schema: Optional[str] = typer.Option(None, "--current", help="postgres://... or path to schema JSON"),
+    pack_path: Optional[Path] = typer.Option(None, "--pack", help="Path to specific pack to check")
+):
+    """Schema drift detection and analysis."""
+    from contextkit.schema_fp import introspect_postgres
+    from contextkit.schema_drift import scan_packs_for_drift, check_pack_compatibility
+    
+    if action == "scan":
+        if not current_schema:
+            print("[red]--current is required for scan[/red]")
+            raise typer.Exit(code=1)
+        
+        # Get current schema
+        if current_schema.startswith("postgres://") or current_schema.startswith("postgresql://"):
+            schema = introspect_postgres(current_schema)
+        else:
+            import json as _json
+            p = Path(current_schema)
+            schema = _json.loads(p.read_text(encoding='utf-8'))
+        
+        results = scan_packs_for_drift(schema)
+        
+        if not results:
+            print("[yellow]No ContextPacks found to scan[/yellow]")
+            return
+        
+        # Group by compatibility level
+        compatible = []
+        breaking = []
+        unknown = []
+        identical = []
+        
+        for pack_name, (compatibility, notes) in results.items():
+            if compatibility == "identical":
+                identical.append(pack_name)
+            elif compatibility == "compatible":
+                compatible.append((pack_name, notes))
+            elif compatibility == "breaking":
+                breaking.append((pack_name, notes))
+            else:
+                unknown.append((pack_name, notes))
+        
+        print(f"\n[bold]Schema Compatibility Scan Results[/bold]")
+        print(f"Scanned {len(results)} ContextPacks\n")
+        
+        if identical:
+            print(f"[green]✅ Identical ({len(identical)})[/green]")
+            for pack in identical:
+                print(f"  {pack}")
+            print()
+        
+        if compatible:
+            print(f"[yellow]⚠️  Compatible with changes ({len(compatible)})[/yellow]")
+            for pack, notes in compatible:
+                print(f"  {pack}")
+                for note in notes[:2]:  # Show first 2 changes
+                    print(f"    {note}")
+            print()
+        
+        if breaking:
+            print(f"[red]❌ Breaking changes ({len(breaking)})[/red]")
+            for pack, notes in breaking:
+                print(f"  {pack}")
+                for note in notes[:3]:  # Show first 3 changes
+                    print(f"    {note}")
+            print()
+        
+        if unknown:
+            print(f"[dim]❓ Unknown ({len(unknown)})[/dim]")
+            for pack, notes in unknown:
+                print(f"  {pack}: {notes[0] if notes else 'No details'}")
+    
+    elif action == "check":
+        if not pack_path or not current_schema:
+            print("[red]Both --pack and --current are required for check[/red]")
+            raise typer.Exit(code=1)
+        
+        # Get current schema
+        if current_schema.startswith("postgres://") or current_schema.startswith("postgresql://"):
+            schema = introspect_postgres(current_schema)
+        else:
+            import json as _json
+            p = Path(current_schema)
+            schema = _json.loads(p.read_text(encoding='utf-8'))
+        
+        compatibility, notes = check_pack_compatibility(pack_path, schema)
+        
+        print(f"\n[bold]Schema Compatibility Check: {pack_path.name}[/bold]")
+        print(f"Compatibility: [{'green' if compatibility == 'identical' else 'yellow' if compatibility == 'compatible' else 'red'}]{compatibility.upper()}[/]")
+        print("\nDetails:")
+        for note in notes:
+            print(f"  {note}")
+    
+    else:
+        print("[red]Unknown action. Use 'scan' or 'check'[/red]")
+        raise typer.Exit(code=1)
+
+@app.command()
+def auto(
+    prompt: List[str] = typer.Argument(..., help="Your prompt for the LLM"),
+    max_tokens: int = typer.Option(8000, help="Maximum tokens for context (3000, 8000, 16000)"),
+    schema: Optional[str] = typer.Option(None, "--schema", help="postgres://... or path to schema JSON for compatibility checking"),
+    project: Optional[str] = typer.Option(None, help="Filter contexts to specific project"),
+    copy: bool = typer.Option(False, "--copy", help="Copy result to clipboard (requires pbcopy/xclip)")
+):
+    """Automatically compose relevant context for your prompt."""
+    user_prompt = " ".join(prompt)
+    
+    # Get current schema if provided
+    current_schema = None
+    if schema:
+        try:
+            if schema.startswith("postgres://") or schema.startswith("postgresql://"):
+                from contextkit.schema_fp import introspect_postgres
+                current_schema = introspect_postgres(schema)
+            else:
+                import json as _json
+                p = Path(schema)
+                current_schema = _json.loads(p.read_text(encoding='utf-8'))
+        except Exception as e:
+            print(f"[yellow]Warning: Could not load schema: {e}[/yellow]")
+    
+    # Compose context
+    try:
+        composed_context = auto_compose_context(
+            prompt=user_prompt,
+            max_tokens=max_tokens,
+            current_schema=current_schema
+        )
+        
+        print(composed_context)
+        
+        # Copy to clipboard if requested
+        if copy:
+            try:
+                import subprocess
+                import platform
+                
+                if platform.system() == "Darwin":  # macOS
+                    subprocess.run(["pbcopy"], input=composed_context.encode(), check=True)
+                    print(f"\n[green]✓ Copied to clipboard[/green]")
+                elif platform.system() == "Linux":
+                    subprocess.run(["xclip", "-selection", "clipboard"], input=composed_context.encode(), check=True)
+                    print(f"\n[green]✓ Copied to clipboard[/green]")
+                else:
+                    print(f"\n[yellow]Clipboard copy not supported on {platform.system()}[/yellow]")
+            except Exception as e:
+                print(f"\n[yellow]Could not copy to clipboard: {e}[/yellow]")
+                
+    except Exception as e:
+        print(f"[red]Error composing context: {e}[/red]")
+        print(f"[yellow]Fallback: No context available for prompt[/yellow]")
+        print(f"\n{user_prompt}")
+        raise typer.Exit(code=1)
 
 if __name__ == "__main__":
     app()

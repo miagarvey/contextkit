@@ -1,0 +1,40 @@
+// Dashboard configuration for customer analytics
+const dashboardConfig = {
+  charts: [
+    {
+      type: 'heatmap',
+      data: 'retention_rates',
+      title: 'Customer Retention Heatmap',
+      xAxis: 'Period (Months)',
+      yAxis: 'Cohort Month'
+    },
+    {
+      type: 'line',
+      data: 'ltv_progression', 
+      title: 'LTV Progression by Cohort',
+      xAxis: 'Months Since First Purchase',
+      yAxis: 'Cumulative LTV ($)'
+    }
+  ],
+  filters: {
+    dateRange: ['2023-01-01', '2024-12-31'],
+    customerSegment: ['all', 'premium', 'standard'],
+    geography: ['US', 'EU', 'APAC']
+  }
+};
+
+function renderDashboard(config) {
+  config.charts.forEach(chart => {
+    const container = document.getElementById(`chart-${chart.type}`);
+    
+    // Initialize chart based on type
+    switch(chart.type) {
+      case 'heatmap':
+        renderHeatmap(container, chart);
+        break;
+      case 'line':
+        renderLineChart(container, chart);
+        break;
+    }
+  });
+}

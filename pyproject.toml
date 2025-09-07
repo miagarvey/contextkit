@@ -21,7 +21,8 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "tiktoken>=0.7.0",
     "orjson>=3.10.7",
-    "scikit-learn>=1.0.0"
+    "scikit-learn>=1.0.0",
+    "openai>=1.0.0"
 ]
 
 [project.scripts]
