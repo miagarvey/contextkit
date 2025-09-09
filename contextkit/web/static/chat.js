@@ -40,13 +40,6 @@ async function sendMessage() {
     const message = messageInput.value.trim();
     if (!message && attachedFiles.length === 0) return;
     
-    // Add user message to chat
-    addMessage('user', message, null, attachedFiles.length > 0 ? [...attachedFiles] : null);
-    
-    // Clear input
-    messageInput.value = '';
-    messageInput.style.height = 'auto';
-    
     // Show typing indicator
     showTyping(true);
     
@@ -54,13 +47,42 @@ async function sendMessage() {
     sendButton.disabled = true;
     
     try {
+        // Upload files first if any
+        let uploadedFiles = [];
+        if (attachedFiles.length > 0) {
+            const formData = new FormData();
+            attachedFiles.forEach(file => {
+                formData.append('files', file);
+            });
+            
+            const uploadResponse = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (uploadResponse.ok) {
+                const uploadData = await uploadResponse.json();
+                uploadedFiles = uploadData.files || [];
+            } else {
+                console.error('File upload failed');
+            }
+        }
+        
+        // Add user message to chat (after upload to show file content)
+        addMessage('user', message, null, uploadedFiles.length > 0 ? uploadedFiles : null);
+        
+        // Clear input
+        messageInput.value = '';
+        messageInput.style.height = 'auto';
+        
         // Prepare request
         const requestData = {
             session_id: sessionId,
             message: message,
             contextkit_enabled: contextkitToggle.checked,
             project: projectInput.value.trim() || null,
-            max_context_tokens: 8000
+            max_context_tokens: 8000,
+            attachments: uploadedFiles
         };
         
         // Send request
