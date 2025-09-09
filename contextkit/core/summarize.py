@@ -1,7 +1,7 @@
 from __future__ import annotations
 import os
 from typing import Dict, Tuple, Optional
-from contextkit.utils import est_tokens
+from contextkit.core.utils import est_tokens
 
 def summarize_llm(front: Dict, body: str) -> str:
     """Use OpenAI to create a structured ContextPack summary."""

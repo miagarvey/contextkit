@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Iterable
 import sqlite3, json, os
 from contextkit.paths import DIRS
-from contextkit.utils import load_md, extract_artifacts, hash_string, est_tokens
+from contextkit.core.utils import load_md, extract_artifacts, hash_string, est_tokens
 import numpy as np
 
 # Minimal index schema

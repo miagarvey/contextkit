@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from typing import Dict, List, Tuple, Optional, Set
 from pathlib import Path
-from contextkit.schema_fp import fingerprint_schema_json
+from contextkit.schema.schema_fp import fingerprint_schema_json
 from contextkit.paths import DIRS
 
 class SchemaDrift:
@@ -126,7 +126,7 @@ class SchemaDrift:
 
 def check_pack_compatibility(pack_path: Path, current_schema: Dict) -> Tuple[str, List[str]]:
     """Check if a ContextPack is compatible with current schema."""
-    from contextkit.utils import load_md
+    from contextkit.core.utils import load_md
     
     front, _ = load_md(pack_path)
     pack_schema_fp = front.get("schema_fingerprint")

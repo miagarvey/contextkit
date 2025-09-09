@@ -5,10 +5,10 @@ from typing import Optional
 import typer
 from rich import print
 from contextkit.paths import DIRS
-from contextkit.utils import load_md, dump_md, extract_artifacts, hash_string, canonicalize_front, now_utc_iso
-from contextkit.index import rebuild_index
-from contextkit.faiss_store import build_faiss
-from contextkit.summarize import summarize_chat
+from contextkit.core.utils import load_md, dump_md, extract_artifacts, hash_string, canonicalize_front, now_utc_iso
+from contextkit.storage.index import rebuild_index
+from contextkit.storage.faiss_store import build_faiss
+from contextkit.core.summarize import summarize_chat
 
 
 def save_chat_command(
@@ -51,7 +51,7 @@ def save_chat_command(
     # schema
     if schema:
         if schema.startswith("postgres://") or schema.startswith("postgresql://") or schema.startswith("postgis://"):
-            from contextkit.schema_fp import introspect_postgres, save_schema_snapshot
+            from contextkit.schema.schema_fp import introspect_postgres, save_schema_snapshot
             snap = introspect_postgres(schema)
             fp = save_schema_snapshot(snap, db_slug="default")
         else:
@@ -59,7 +59,7 @@ def save_chat_command(
             import json as _json
             p = Path(schema)
             snap = _json.loads(p.read_text(encoding="utf-8"))
-            from contextkit.schema_fp import fingerprint_schema_json
+            from contextkit.schema.schema_fp import fingerprint_schema_json
             fp = fingerprint_schema_json(snap)
         front["schema_fingerprint"] = fp
     
@@ -83,7 +83,7 @@ def save_chat_command(
 
 def summarize_command(path: Path):
     """Create a structured ContextPack from a chat."""
-    from contextkit.utils import load_md, dump_md
+    from contextkit.core.utils import load_md, dump_md
     front, body = load_md(path)
     text, tokens = summarize_chat(front, body)
     pack_front = {
@@ -122,7 +122,7 @@ Summarized from chat.
 ## Next Steps
 - (fill)
 """
-    from contextkit.utils import hash_string, canonicalize_front
+    from contextkit.core.utils import hash_string, canonicalize_front
     canon = canonicalize_front(pack_front, ["project","title","schema_fingerprint","tables","artifacts"]).decode("utf-8")
     pack_hash = hash_string((canon + "\n" + pack_body).encode("utf-8").hex())
     pack_front["hash"] = pack_hash
@@ -141,9 +141,9 @@ def inject_command(
     validate_schema: Optional[str] = typer.Option(None, "--validate-schema", help="postgres://... or path to schema JSON")
 ):
     """Print a copy-pasteable pack with a small provenance banner."""
-    from contextkit.utils import load_md
-    from contextkit.schema_fp import introspect_postgres, fingerprint_schema_json
-    from contextkit.schema_drift import check_pack_compatibility
+    from contextkit.core.utils import load_md
+    from contextkit.schema.schema_fp import introspect_postgres, fingerprint_schema_json
+    from contextkit.schema.schema_drift import check_pack_compatibility
     
     front, body = load_md(path)
     banner = f"[CONTEXTKIT] Using pack {front.get('title')} | pack_hash={front.get('hash')} | schema_fp={front.get('schema_fingerprint')}"

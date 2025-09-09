@@ -6,7 +6,7 @@ import json
 import pickle
 from sklearn.metrics.pairwise import cosine_similarity
 from contextkit.paths import DIRS
-from contextkit.index import connect, query
+from contextkit.storage.index import connect, query
 
 INDEX_PATH = DIRS["index"] / "sklearn_index.pkl"
 META_PATH = DIRS["index"] / "sklearn_meta.json"
@@ -16,7 +16,7 @@ def build_faiss() -> None:
     conn = connect()
     rows = list(query(conn, "SELECT path, kind, project, title, summary FROM docs"))
     texts = [f"{r['project']} | {r['title']} | {r['summary']}" for r in rows]
-    from contextkit.embeds import embed_texts
+    from contextkit.storage.embeds import embed_texts
     if not rows:
         return
     vecs = embed_texts(texts)
@@ -32,7 +32,7 @@ def search(q: str, top_k: int = 5) -> List[Tuple[str, float]]:
     if not INDEX_PATH.exists() or not META_PATH.exists():
         return []
     
-    from contextkit.embeds import embed_texts
+    from contextkit.storage.embeds import embed_texts
     
     # Load embeddings and metadata
     with open(INDEX_PATH, 'rb') as f:
