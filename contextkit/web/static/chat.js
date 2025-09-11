@@ -33,7 +33,15 @@ function handleKeyDown(e) {
 
 function autoResize() {
     messageInput.style.height = 'auto';
-    messageInput.style.height = Math.min(messageInput.scrollHeight, 150) + 'px';
+    messageInput.style.height = Math.min(messageInput.scrollHeight, 200) + 'px';
+    
+    // Update send button state based on input content
+    const hasContent = messageInput.value.trim().length > 0 || attachedFiles.length > 0;
+    if (hasContent) {
+        sendButton.classList.add('active');
+    } else {
+        sendButton.classList.remove('active');
+    }
 }
 
 async function sendMessage() {
@@ -172,6 +180,9 @@ function updateAttachments() {
         `;
         attachmentsDiv.appendChild(attachmentDiv);
     });
+    
+    // Update send button state when attachments change
+    autoResize();
 }
 
 function removeAttachment(index) {
