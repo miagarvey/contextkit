@@ -2,6 +2,8 @@
 let sessionId = generateSessionId();
 let attachedFiles = [];
 let sessionFiles = []; // Track files uploaded in this session
+let currentSessionId = null;
+let chatSessions = [];
 
 // DOM elements
 const messagesArea = document.getElementById('messages-area');
@@ -383,6 +385,148 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Make toggleContext global
+// Chat history management
+async function loadChatSessions() {
+    try {
+        const response = await fetch('/api/sessions');
+        if (response.ok) {
+            chatSessions = await response.json();
+            updateChatList();
+        }
+    } catch (error) {
+        console.error('Error loading chat sessions:', error);
+    }
+}
+
+function updateChatList() {
+    const chatList = document.getElementById('chat-list');
+    if (!chatList) return;
+    
+    if (chatSessions.length === 0) {
+        chatList.innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.875rem;">No previous chats</div>';
+        return;
+    }
+    
+    chatList.innerHTML = '';
+    chatSessions.forEach(session => {
+        const chatItem = document.createElement('div');
+        chatItem.className = `chat-item ${session.session_id === currentSessionId ? 'active' : ''}`;
+        chatItem.onclick = () => loadChatSession(session.session_id);
+        
+        // Generate title from first message or use default
+        const title = session.title || `Chat ${session.session_id.slice(-8)}`;
+        const timeAgo = formatTimeAgo(new Date(session.created_at));
+        
+        chatItem.innerHTML = `
+            <div class="chat-item-title">${escapeHtml(title)}</div>
+            <div class="chat-item-meta">
+                <span>${timeAgo}</span>
+                ${session.project ? `<span class="chat-item-project">${escapeHtml(session.project)}</span>` : ''}
+            </div>
+        `;
+        
+        chatList.appendChild(chatItem);
+    });
+}
+
+async function loadChatSession(sessionId) {
+    try {
+        const response = await fetch(`/api/sessions/${sessionId}`);
+        if (response.ok) {
+            const sessionData = await response.json();
+            
+            // Update current session
+            currentSessionId = sessionId;
+            this.sessionId = sessionId;
+            
+            // Clear current messages
+            messagesArea.innerHTML = '';
+            
+            // Load session files
+            sessionFiles = sessionData.uploaded_files || [];
+            updateSessionFiles();
+            
+            // Load messages
+            if (sessionData.messages && sessionData.messages.length > 0) {
+                sessionData.messages.forEach(msg => {
+                    addMessage(msg.role, msg.content, msg.context_used, msg.attachments);
+                });
+            } else {
+                // Show welcome message for empty session
+                addMessage('assistant', "Hello! I'm your ContextKit-powered assistant. I can help you with data analysis, code generation, and more. When ContextKit is enabled, I'll automatically find and use relevant context from your previous conversations.");
+            }
+            
+            // Update project input
+            if (sessionData.project) {
+                projectInput.value = sessionData.project;
+            }
+            
+            // Update ContextKit toggle
+            if (sessionData.contextkit_enabled !== undefined) {
+                contextkitToggle.checked = sessionData.contextkit_enabled;
+            }
+            
+            // Update chat list to show active session
+            updateChatList();
+            
+        } else {
+            console.error('Failed to load chat session');
+        }
+    } catch (error) {
+        console.error('Error loading chat session:', error);
+    }
+}
+
+function startNewChat() {
+    // Generate new session ID
+    sessionId = generateSessionId();
+    currentSessionId = null;
+    
+    // Clear current state
+    messagesArea.innerHTML = '';
+    sessionFiles = [];
+    attachedFiles = [];
+    updateSessionFiles();
+    updateAttachments();
+    
+    // Reset form
+    messageInput.value = '';
+    projectInput.value = '';
+    contextkitToggle.checked = true;
+    
+    // Show welcome message
+    addMessage('assistant', "Hello! I'm your ContextKit-powered assistant. I can help you with data analysis, code generation, and more. When ContextKit is enabled, I'll automatically find and use relevant context from your previous conversations.");
+    
+    // Update chat list
+    updateChatList();
+}
+
+function formatTimeAgo(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+}
+
+// Initialize chat history on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadChatSessions();
+    
+    // Add new chat button listener
+    const newChatBtn = document.getElementById('new-chat-btn');
+    if (newChatBtn) {
+        newChatBtn.addEventListener('click', startNewChat);
+    }
+});
+
+// Make functions global
 window.toggleContext = toggleContext;
 window.removeAttachment = removeAttachment;
+window.loadChatSession = loadChatSession;

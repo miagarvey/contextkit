@@ -26,14 +26,28 @@ def get_main_template() -> str:
     </div>
     
     <div class="chat-container">
-        <div class="messages-area" id="messages-area">
-            <div class="message assistant">
-                <div>Hello! I'm your ContextKit-powered assistant. I can help you with data analysis, code generation, and more. When ContextKit is enabled, I'll automatically find and use relevant context from your previous conversations.</div>
-                <div class="message-meta">
-                    Try asking me about your data, uploading files, or connecting your database schema.
-                </div>
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>Chat History</h3>
+                <button class="new-chat-btn" id="new-chat-btn" title="Start new chat">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="chat-list" id="chat-list">
+                <!-- Chat sessions will be loaded here -->
             </div>
         </div>
+        <div class="main-chat">
+            <div class="messages-area" id="messages-area">
+                <div class="message assistant">
+                    <div>Hello! I'm your ContextKit-powered assistant. I can help you with data analysis, code generation, and more. When ContextKit is enabled, I'll automatically find and use relevant context from your previous conversations.</div>
+                    <div class="message-meta">
+                        Try asking me about your data, uploading files, or connecting your database schema.
+                    </div>
+                </div>
+            </div>
         
         <div class="typing-indicator" id="typing-indicator">
             <div class="typing-dots">
@@ -81,6 +95,7 @@ def get_main_template() -> str:
                     </svg>
                 </button>
             </div>
+        </div>
         </div>
     </div>
 

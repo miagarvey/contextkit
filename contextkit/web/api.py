@@ -46,6 +46,7 @@ class SessionInfo(BaseModel):
     message_count: int
     contextkit_enabled: bool
     project: Optional[str] = None
+    title: Optional[str] = None
 
 def get_llm_response(prompt: str, context: Optional[str] = None) -> str:
     """Get response from OpenAI LLM."""
@@ -305,13 +306,32 @@ def get_sessions() -> List[SessionInfo]:
     """List all chat sessions."""
     sessions = []
     for session_id, session_data in chat_sessions.items():
+        # Generate title from first user message
+        title = None
+        messages = session_data.get("messages", [])
+        for msg in messages:
+            if isinstance(msg, dict) and msg.get("role") == "user":
+                content = msg.get("content", "")
+                # Take first 50 characters and clean up
+                title = content[:50].strip()
+                if len(content) > 50:
+                    title += "..."
+                break
+        
+        if not title:
+            title = f"Chat {session_id[-8:]}"
+        
         sessions.append(SessionInfo(
             session_id=session_id,
             created_at=session_data["created_at"],
             message_count=len(session_data["messages"]),
             contextkit_enabled=session_data.get("contextkit_enabled", True),
-            project=session_data.get("project")
+            project=session_data.get("project"),
+            title=title
         ))
+    
+    # Sort by creation time, newest first
+    sessions.sort(key=lambda x: x.created_at, reverse=True)
     return sessions
 
 def delete_session(session_id: str) -> Dict[str, str]:
