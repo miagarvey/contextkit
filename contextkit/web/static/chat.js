@@ -23,15 +23,11 @@ messageInput.addEventListener('input', autoResize);
 sendButton.addEventListener('click', sendMessage);
 attachButton.addEventListener('click', () => {
     console.log('Attach button clicked');
-    if (fileInput) {
-        console.log('Triggering file input click');
-        try {
-            fileInput.click();
-        } catch (error) {
-            console.error('Error clicking file input:', error);
-        }
+    if (fileDropZone) {
+        fileDropZone.classList.add('visible');
+        console.log('Drop zone made visible');
     } else {
-        console.error('File input element not found');
+        console.error('File drop zone element not found');
     }
 });
 
@@ -95,6 +91,22 @@ if (fileDropZone) {
         }
     });
 }
+
+// Hide drop zone when clicking outside or pressing escape
+document.addEventListener('click', (e) => {
+    if (fileDropZone && fileDropZone.classList.contains('visible')) {
+        // If click is outside the drop zone and not on the attach button
+        if (!fileDropZone.contains(e.target) && !attachButton.contains(e.target)) {
+            fileDropZone.classList.remove('visible');
+        }
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && fileDropZone && fileDropZone.classList.contains('visible')) {
+        fileDropZone.classList.remove('visible');
+    }
+});
 
 // Debug: Check if elements exist
 console.log('DOM elements:', {

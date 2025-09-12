@@ -76,9 +76,8 @@ def get_main_template() -> str:
                            style="position: absolute; left: -9999px;">
                 </div>
                 <button class="send-button" id="send-button" title="Send message">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="m22 2-7 20-4-9-9-4Z"/>
-                        <path d="M22 2 11 13"/>
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
                     </svg>
                 </button>
             </div>

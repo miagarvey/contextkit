@@ -2,7 +2,7 @@
 from __future__ import annotations
 import os
 from typing import List
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -56,6 +56,14 @@ async def upload_files(files: List[UploadFile] = File(...)):
 async def list_sessions():
     """List all chat sessions."""
     return get_sessions()
+
+@app.get("/api/sessions/{session_id}")
+async def get_session(session_id: str):
+    """Get a specific chat session with all messages."""
+    from contextkit.web.api import chat_sessions
+    if session_id not in chat_sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return chat_sessions[session_id]
 
 @app.delete("/api/sessions/{session_id}")
 async def delete_session_endpoint(session_id: str):
