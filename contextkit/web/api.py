@@ -146,19 +146,28 @@ async def handle_chat(request: ChatRequest) -> ChatResponse:
                 "created_at": datetime.now(),
                 "messages": [],
                 "contextkit_enabled": request.contextkit_enabled,
-                "project": request.project or "web-chat"
+                "project": request.project or "web-chat",
+                "uploaded_files": []  # Store uploaded files for the entire session
             }
         
         session = chat_sessions[request.session_id]
         
-        # Handle file attachments if present
-        attachment_context = ""
+        # Handle file attachments if present - add new files to session storage
         if request.attachments:
-            attachment_context = "\n\nAttached files:\n"
             for attachment in request.attachments:
+                # Check if this file is already in the session
+                existing_file = next((f for f in session["uploaded_files"] if f["filename"] == attachment["filename"]), None)
+                if not existing_file:
+                    session["uploaded_files"].append(attachment)
+        
+        # Build context from ALL uploaded files in the session
+        attachment_context = ""
+        if session["uploaded_files"]:
+            attachment_context = "\n\nUploaded files in this session:\n"
+            for attachment in session["uploaded_files"]:
                 filename = attachment.get("filename", "unknown")
                 content = attachment.get("content", "")
-                attachment_context += f"- {filename}:\n{content[:500]}...\n"
+                attachment_context += f"- {filename}:\n{content[:1000]}...\n\n"
         
         # Add user message to session
         user_message = {

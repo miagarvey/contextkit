@@ -1,6 +1,7 @@
 // Global state
 let sessionId = generateSessionId();
 let attachedFiles = [];
+let sessionFiles = []; // Track files uploaded in this session
 
 // DOM elements
 const messagesArea = document.getElementById('messages-area');
@@ -12,13 +13,109 @@ const attachmentsDiv = document.getElementById('attachments');
 const contextkitToggle = document.getElementById('contextkit-toggle');
 const projectInput = document.getElementById('project-input');
 const typingIndicator = document.getElementById('typing-indicator');
+const fileDropZone = document.getElementById('file-drop-zone');
+const browseButton = document.getElementById('browse-button');
+const sessionFilesDiv = document.getElementById('session-files');
 
 // Event listeners
 messageInput.addEventListener('keydown', handleKeyDown);
 messageInput.addEventListener('input', autoResize);
 sendButton.addEventListener('click', sendMessage);
-attachButton.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', handleFileUpload);
+attachButton.addEventListener('click', () => {
+    console.log('Attach button clicked');
+    if (fileInput) {
+        console.log('Triggering file input click');
+        try {
+            fileInput.click();
+        } catch (error) {
+            console.error('Error clicking file input:', error);
+        }
+    } else {
+        console.error('File input element not found');
+    }
+});
+
+if (fileInput) {
+    fileInput.addEventListener('change', handleFileUpload);
+} else {
+    console.error('Cannot add change listener - file input not found');
+}
+
+// Browse button and drag-and-drop functionality
+if (browseButton) {
+    browseButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (fileInput) {
+            fileInput.click();
+        }
+    });
+}
+
+if (fileDropZone) {
+    // Show drop zone when files are being dragged
+    document.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        fileDropZone.classList.add('visible');
+    });
+    
+    document.addEventListener('dragleave', (e) => {
+        // Only hide if we're leaving the document entirely
+        if (!e.relatedTarget) {
+            fileDropZone.classList.remove('visible');
+        }
+    });
+    
+    // Drop zone events
+    fileDropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        fileDropZone.classList.add('drag-over');
+    });
+    
+    fileDropZone.addEventListener('dragleave', (e) => {
+        if (!fileDropZone.contains(e.relatedTarget)) {
+            fileDropZone.classList.remove('drag-over');
+        }
+    });
+    
+    fileDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        fileDropZone.classList.remove('visible', 'drag-over');
+        
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) {
+            attachedFiles.push(...files);
+            updateAttachments();
+        }
+    });
+    
+    // Click to browse
+    fileDropZone.addEventListener('click', () => {
+        if (fileInput) {
+            fileInput.click();
+        }
+    });
+}
+
+// Debug: Check if elements exist
+console.log('DOM elements:', {
+    attachButton: !!attachButton,
+    fileInput: !!fileInput,
+    attachmentsDiv: !!attachmentsDiv,
+    attachButtonElement: attachButton,
+    fileInputElement: fileInput
+});
+
+// Additional debugging for file input
+if (fileInput) {
+    console.log('File input details:', {
+        type: fileInput.type,
+        multiple: fileInput.multiple,
+        accept: fileInput.accept,
+        style: fileInput.style.display
+    });
+} else {
+    console.log('File input element not found!');
+}
 
 function generateSessionId() {
     return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -76,6 +173,18 @@ async function sendMessage() {
             }
         }
         
+        // Add uploaded files to session files list
+        if (uploadedFiles.length > 0) {
+            uploadedFiles.forEach(file => {
+                // Check if file already exists in session
+                const existingFile = sessionFiles.find(f => f.filename === file.filename);
+                if (!existingFile) {
+                    sessionFiles.push(file);
+                }
+            });
+            updateSessionFiles();
+        }
+        
         // Add user message to chat (after upload to show file content)
         addMessage('user', message, null, uploadedFiles.length > 0 ? uploadedFiles : null);
         
@@ -124,7 +233,29 @@ function addMessage(role, content, contextUsed = null, attachments = null, conte
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${role}`;
     
-    let html = `<div>${escapeHtml(content)}</div>`;
+    // Configure marked for better code rendering
+    if (typeof marked !== 'undefined') {
+        marked.setOptions({
+            highlight: function(code, lang) {
+                if (typeof Prism !== 'undefined' && Prism.languages[lang]) {
+                    return Prism.highlight(code, Prism.languages[lang], lang);
+                }
+                return code;
+            },
+            breaks: true,
+            gfm: true
+        });
+    }
+    
+    // Render content as markdown for assistant messages, plain text for user messages
+    let renderedContent;
+    if (role === 'assistant' && typeof marked !== 'undefined') {
+        renderedContent = marked.parse(content);
+    } else {
+        renderedContent = `<p>${escapeHtml(content).replace(/\n/g, '<br>')}</p>`;
+    }
+    
+    let html = `<div class="message-content">${renderedContent}</div>`;
     
     // Add timestamp
     const timestamp = new Date().toLocaleTimeString();
@@ -147,6 +278,12 @@ function addMessage(role, content, contextUsed = null, attachments = null, conte
     
     messageDiv.innerHTML = html;
     messagesArea.appendChild(messageDiv);
+    
+    // Trigger syntax highlighting for any new code blocks
+    if (typeof Prism !== 'undefined') {
+        Prism.highlightAllUnder(messageDiv);
+    }
+    
     messagesArea.scrollTop = messagesArea.scrollHeight;
 }
 
@@ -188,6 +325,44 @@ function updateAttachments() {
 function removeAttachment(index) {
     attachedFiles.splice(index, 1);
     updateAttachments();
+}
+
+function updateSessionFiles() {
+    if (!sessionFilesDiv) return;
+    
+    if (sessionFiles.length === 0) {
+        sessionFilesDiv.innerHTML = '';
+        return;
+    }
+    
+    let html = `
+        <div class="session-files-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14,2 14,8 20,8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10,9 9,9 8,9"/>
+            </svg>
+            Files in session memory (${sessionFiles.length})
+        </div>
+        <div class="session-files-list">
+    `;
+    
+    sessionFiles.forEach(file => {
+        html += `
+            <div class="session-file">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px;">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                </svg>
+                ${file.filename}
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    sessionFilesDiv.innerHTML = html;
 }
 
 function escapeHtml(text) {
