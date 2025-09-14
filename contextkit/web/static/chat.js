@@ -17,7 +17,7 @@ const projectInput = document.getElementById('project-input');
 const typingIndicator = document.getElementById('typing-indicator');
 const fileDropZone = document.getElementById('file-drop-zone');
 const browseButton = document.getElementById('browse-button');
-const sessionFilesDiv = document.getElementById('session-files');
+// Removed sessionFilesDiv - no longer needed
 
 // Event listeners
 messageInput.addEventListener('keydown', handleKeyDown);
@@ -228,6 +228,11 @@ async function sendMessage() {
         const data = await response.json();
         
         if (response.ok) {
+            // Set currentSessionId to track this session for saving
+            if (!currentSessionId) {
+                currentSessionId = sessionId;
+            }
+            
             // Add assistant response
             addMessage('assistant', data.response, data.context_used, null, data.context_metadata);
         } else {
@@ -342,41 +347,8 @@ function removeAttachment(index) {
 }
 
 function updateSessionFiles() {
-    if (!sessionFilesDiv) return;
-    
-    if (sessionFiles.length === 0) {
-        sessionFilesDiv.innerHTML = '';
-        return;
-    }
-    
-    let html = `
-        <div class="session-files-header">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14,2 14,8 20,8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-                <polyline points="10,9 9,9 8,9"/>
-            </svg>
-            Files in session memory (${sessionFiles.length})
-        </div>
-        <div class="session-files-list">
-    `;
-    
-    sessionFiles.forEach(file => {
-        html += `
-            <div class="session-file">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px;">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14,2 14,8 20,8"/>
-                </svg>
-                ${file.filename}
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    sessionFilesDiv.innerHTML = html;
+    // Files are now handled in context automatically - no UI indicator needed
+    // This function is kept for compatibility but does nothing
 }
 
 function escapeHtml(text) {
@@ -429,15 +401,15 @@ function updateChatList() {
     });
 }
 
-async function loadChatSession(sessionId) {
+async function loadChatSession(sessionIdToLoad) {
     try {
-        const response = await fetch(`/api/sessions/${sessionId}`);
+        const response = await fetch(`/api/sessions/${sessionIdToLoad}`);
         if (response.ok) {
             const sessionData = await response.json();
             
             // Update current session
-            currentSessionId = sessionId;
-            this.sessionId = sessionId;
+            currentSessionId = sessionIdToLoad;
+            sessionId = sessionIdToLoad;  // Update the global sessionId for future messages
             
             // Clear current messages
             messagesArea.innerHTML = '';
@@ -477,7 +449,30 @@ async function loadChatSession(sessionId) {
     }
 }
 
-function startNewChat() {
+async function startNewChat() {
+    // Save current session if it has messages and isn't already saved
+    const sessionToSave = currentSessionId || sessionId; // Use currentSessionId or fallback to sessionId
+    if (sessionToSave && messagesArea.children.length > 1) { // More than just welcome message
+        try {
+            // Save current session using the dedicated save endpoint
+            const saveResponse = await fetch(`/api/sessions/${sessionToSave}/save`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (saveResponse.ok) {
+                const saveData = await saveResponse.json();
+                console.log('Current session saved before starting new chat:', saveData.message);
+            } else {
+                console.warn('Failed to save current session');
+            }
+        } catch (error) {
+            console.error('Error saving current session:', error);
+        }
+    }
+    
     // Generate new session ID
     sessionId = generateSessionId();
     currentSessionId = null;
@@ -497,8 +492,8 @@ function startNewChat() {
     // Show welcome message
     addMessage('assistant', "Hello! I'm your ContextKit-powered assistant. I can help you with data analysis, code generation, and more. When ContextKit is enabled, I'll automatically find and use relevant context from your previous conversations.");
     
-    // Update chat list
-    updateChatList();
+    // Reload chat list to show the saved session
+    await loadChatSessions();
 }
 
 function formatTimeAgo(date) {
@@ -523,6 +518,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const newChatBtn = document.getElementById('new-chat-btn');
     if (newChatBtn) {
         newChatBtn.addEventListener('click', startNewChat);
+    }
+    
+    // Add collapse button listener
+    const collapseBtn = document.getElementById('collapse-btn');
+    const sidebar = document.getElementById('sidebar');
+    console.log('Collapse button found:', !!collapseBtn);
+    console.log('Sidebar found:', !!sidebar);
+    
+    if (collapseBtn && sidebar) {
+        console.log('Adding collapse button listener');
+        collapseBtn.addEventListener('click', () => {
+            console.log('Collapse button clicked');
+            sidebar.classList.toggle('collapsed');
+            
+            // Update button title
+            if (sidebar.classList.contains('collapsed')) {
+                collapseBtn.title = 'Expand sidebar';
+                console.log('Sidebar collapsed');
+            } else {
+                collapseBtn.title = 'Collapse sidebar';
+                console.log('Sidebar expanded');
+            }
+        });
+    } else {
+        console.error('Collapse button or sidebar not found!');
     }
 });
 

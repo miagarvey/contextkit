@@ -65,12 +65,12 @@ def get_llm_response(prompt: str, context: Optional[str] = None) -> str:
             full_prompt = f"{context}\n\nUser: {prompt}"
         
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a helpful data analyst assistant. Use any provided context to give more informed responses."},
                 {"role": "user", "content": full_prompt}
             ],
-            max_tokens=1000,
+            max_tokens=2000,
             temperature=0.7
         )
         
@@ -161,19 +161,33 @@ async def handle_chat(request: ChatRequest) -> ChatResponse:
                 if not existing_file:
                     session["uploaded_files"].append(attachment)
         
+        # Build conversation history context from previous messages
+        conversation_context = ""
+        if len(session["messages"]) > 0:
+            conversation_context = "\n\nPrevious conversation:\n"
+            # Include last few messages for context (limit to avoid token overflow)
+            recent_messages = session["messages"][-6:]  # Last 3 exchanges
+            for msg in recent_messages:
+                role = msg.get("role", "unknown")
+                content = msg.get("content", "")
+                # Truncate very long messages
+                if len(content) > 500:
+                    content = content[:500] + "..."
+                conversation_context += f"{role.capitalize()}: {content}\n"
+        
         # Build context from ALL uploaded files in the session
         attachment_context = ""
         if session["uploaded_files"]:
-            attachment_context = "\n\nUploaded files in this session:\n"
+            attachment_context = "\n\nFiles available in this conversation:\n"
             for attachment in session["uploaded_files"]:
-                filename = attachment.get("filename", "unknown")
+                filename = attachment.get("filename", "")
                 content = attachment.get("content", "")
                 attachment_context += f"- {filename}:\n{content[:1000]}...\n\n"
         
-        # Add user message to session
+        # Add user message to session (store original message without context)
         user_message = {
             "role": "user",
-            "content": request.message + attachment_context,
+            "content": request.message,
             "timestamp": datetime.now().isoformat(),
             "attachments": request.attachments
         }
@@ -224,8 +238,8 @@ async def handle_chat(request: ChatRequest) -> ChatResponse:
                 print(f"ContextKit error: {e}")
                 context_used = None
         
-        # Get LLM response
-        full_prompt = request.message + attachment_context
+        # Build full prompt with conversation history and file context
+        full_prompt = request.message + conversation_context + attachment_context
         response_content = get_llm_response(full_prompt, context_used)
         
         # Add assistant message to session
@@ -333,6 +347,21 @@ def get_sessions() -> List[SessionInfo]:
     # Sort by creation time, newest first
     sessions.sort(key=lambda x: x.created_at, reverse=True)
     return sessions
+
+def save_session(session_id: str) -> Dict[str, str]:
+    """Save a chat session to ContextKit."""
+    if session_id in chat_sessions:
+        session_data = chat_sessions[session_id]
+        if session_data.get("messages"):
+            save_result = save_session_to_markdown(session_id, session_data)
+            if save_result:
+                return {"status": "success", "message": save_result}
+            else:
+                return {"status": "error", "message": "Failed to save session"}
+        else:
+            return {"status": "error", "message": "No messages to save"}
+    else:
+        raise HTTPException(status_code=404, detail="Session not found")
 
 def delete_session(session_id: str) -> Dict[str, str]:
     """Delete a chat session."""

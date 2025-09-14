@@ -29,11 +29,18 @@ def get_main_template() -> str:
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h3>Chat History</h3>
-                <button class="new-chat-btn" id="new-chat-btn" title="Start new chat">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 5v14M5 12h14"/>
-                    </svg>
-                </button>
+                <div class="sidebar-controls">
+                    <button class="new-chat-btn" id="new-chat-btn" title="Start new chat">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                    </button>
+                    <button class="collapse-btn" id="collapse-btn" title="Collapse sidebar" onclick="toggleSidebar()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="15,18 9,12 15,6"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div class="chat-list" id="chat-list">
                 <!-- Chat sessions will be loaded here -->
@@ -58,7 +65,6 @@ def get_main_template() -> str:
         </div>
         
         <div class="input-area">
-            <div class="session-files" id="session-files"></div>
             <div class="attachments" id="attachments"></div>
             <div class="file-drop-zone" id="file-drop-zone">
                 <div class="drop-zone-content">
@@ -103,6 +109,27 @@ def get_main_template() -> str:
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css">
+    <script>
+        function toggleSidebar() {
+            console.log('toggleSidebar called');
+            const sidebar = document.getElementById('sidebar');
+            const collapseBtn = document.getElementById('collapse-btn');
+            
+            if (sidebar && collapseBtn) {
+                sidebar.classList.toggle('collapsed');
+                
+                if (sidebar.classList.contains('collapsed')) {
+                    collapseBtn.title = 'Expand sidebar';
+                    console.log('Sidebar collapsed');
+                } else {
+                    collapseBtn.title = 'Collapse sidebar';
+                    console.log('Sidebar expanded');
+                }
+            } else {
+                console.error('Sidebar or collapse button not found');
+            }
+        }
+    </script>
     <script src="/static/chat.js"></script>
 </body>
 </html>"""

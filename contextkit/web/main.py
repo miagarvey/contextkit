@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from contextkit.web.templates import get_main_template
 from contextkit.web.api import (
     ChatRequest, ChatResponse, SessionInfo,
-    handle_chat, handle_upload, get_sessions, delete_session
+    handle_chat, handle_upload, get_sessions, save_session, delete_session
 )
 
 # Load environment variables from .env file
@@ -64,6 +64,11 @@ async def get_session(session_id: str):
     if session_id not in chat_sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     return chat_sessions[session_id]
+
+@app.post("/api/sessions/{session_id}/save")
+async def save_session_endpoint(session_id: str):
+    """Save a chat session to ContextKit."""
+    return save_session(session_id)
 
 @app.delete("/api/sessions/{session_id}")
 async def delete_session_endpoint(session_id: str):
