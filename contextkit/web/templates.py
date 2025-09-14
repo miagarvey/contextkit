@@ -56,14 +56,6 @@ def get_main_template() -> str:
                 </div>
             </div>
         
-        <div class="typing-indicator" id="typing-indicator">
-            <div class="typing-dots">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-        </div>
-        
         <div class="input-area">
             <div class="attachments" id="attachments"></div>
             <div class="file-drop-zone" id="file-drop-zone">

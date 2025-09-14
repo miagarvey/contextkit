@@ -886,8 +886,7 @@ input:checked + .slider:before {
     border-bottom-left-radius: var(--radius-sm);
     animation: messageSlideIn 0.3s ease-out;
     max-width: 75%;
-    margin-left: 0;
-    margin-right: auto;
+    margin: 0;
 }
 
 .typing-dots {

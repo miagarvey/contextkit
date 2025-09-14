@@ -14,9 +14,9 @@ const fileInput = document.getElementById('file-input');
 const attachmentsDiv = document.getElementById('attachments');
 const contextkitToggle = document.getElementById('contextkit-toggle');
 const projectInput = document.getElementById('project-input');
-const typingIndicator = document.getElementById('typing-indicator');
 const fileDropZone = document.getElementById('file-drop-zone');
 const browseButton = document.getElementById('browse-button');
+let typingIndicator = null; // Will be created dynamically
 // Removed sessionFilesDiv - no longer needed
 
 // Event listeners
@@ -159,9 +159,6 @@ async function sendMessage() {
     const message = messageInput.value.trim();
     if (!message && attachedFiles.length === 0) return;
     
-    // Show typing indicator
-    showTyping(true);
-    
     // Disable send button
     sendButton.disabled = true;
     
@@ -199,8 +196,11 @@ async function sendMessage() {
             updateSessionFiles();
         }
         
-        // Add user message to chat (after upload to show file content)
+        // Add user message to chat first (after upload to show file content)
         addMessage('user', message, null, uploadedFiles.length > 0 ? uploadedFiles : null);
+        
+        // Show typing indicator after user message
+        showTyping(true);
         
         // Clear input
         messageInput.value = '';
@@ -312,9 +312,29 @@ function toggleContext(contextId) {
 }
 
 function showTyping(show) {
-    typingIndicator.style.display = show ? 'block' : 'none';
     if (show) {
+        // Create typing indicator if it doesn't exist
+        if (!typingIndicator) {
+            typingIndicator = document.createElement('div');
+            typingIndicator.className = 'typing-indicator';
+            typingIndicator.innerHTML = `
+                <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            `;
+        }
+        
+        // Insert typing indicator after the last message (which should be the user's message)
+        messagesArea.appendChild(typingIndicator);
+        typingIndicator.style.display = 'block';
         messagesArea.scrollTop = messagesArea.scrollHeight;
+    } else {
+        // Remove typing indicator from DOM
+        if (typingIndicator && typingIndicator.parentNode) {
+            typingIndicator.parentNode.removeChild(typingIndicator);
+        }
     }
 }
 
