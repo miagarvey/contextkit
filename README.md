@@ -61,6 +61,7 @@ ctx web
 3. Ask questions: "What's the average customer lifetime value by channel?"
 4. Follow up: "Which products have the highest margins?" (files remain in memory)
 5. Get insights: the assistant uses both uploaded files and relevant ContextPacks
+6. Access previous chats through the web interface
 
 ## Quick start
 
