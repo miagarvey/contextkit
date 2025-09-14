@@ -173,7 +173,7 @@ input:checked + .slider:before {
 }
 
 .sidebar.collapsed {
-    width: 60px;
+    width: 80px;
 }
 
 .sidebar.collapsed .sidebar-header h3,
@@ -182,8 +182,31 @@ input:checked + .slider:before {
     pointer-events: none;
 }
 
+.sidebar.collapsed .sidebar-header {
+    padding: 1rem;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.sidebar.collapsed .sidebar-controls {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+}
+
 .sidebar.collapsed .collapse-btn svg {
     transform: rotate(180deg);
+}
+
+.sidebar.collapsed .new-chat-btn {
+    display: none;
 }
 
 .sidebar-header {
@@ -238,11 +261,14 @@ input:checked + .slider:before {
 }
 
 .collapse-btn {
-    background: var(--secondary);
+    background: var(--secondary) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 .collapse-btn:hover {
-    background: var(--text-secondary);
+    background: var(--text-secondary) !important;
 }
 
 .chat-list {

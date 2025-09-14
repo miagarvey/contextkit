@@ -110,10 +110,14 @@ def get_main_template() -> str:
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css">
     <script>
-        function toggleSidebar() {
+        // Make sure function is available globally
+        window.toggleSidebar = function() {
             console.log('toggleSidebar called');
             const sidebar = document.getElementById('sidebar');
             const collapseBtn = document.getElementById('collapse-btn');
+            
+            console.log('Sidebar element:', sidebar);
+            console.log('Collapse button element:', collapseBtn);
             
             if (sidebar && collapseBtn) {
                 sidebar.classList.toggle('collapsed');
@@ -127,8 +131,25 @@ def get_main_template() -> str:
                 }
             } else {
                 console.error('Sidebar or collapse button not found');
+                console.error('Sidebar:', sidebar);
+                console.error('Collapse button:', collapseBtn);
             }
-        }
+        };
+        
+        // Also add event listener as backup
+        document.addEventListener('DOMContentLoaded', function() {
+            const collapseBtn = document.getElementById('collapse-btn');
+            if (collapseBtn) {
+                console.log('Adding click event listener to collapse button');
+                collapseBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('Click event triggered');
+                    window.toggleSidebar();
+                });
+            } else {
+                console.error('Collapse button not found during DOMContentLoaded');
+            }
+        });
     </script>
     <script src="/static/chat.js"></script>
 </body>
