@@ -435,6 +435,15 @@ async def handle_chat(request: ChatRequest) -> ChatResponse:
         }
         session["messages"].append(assistant_message)
         
+        # Generate AI title after first exchange (2 messages)
+        if len(session["messages"]) == 2 and "ai_title" not in session:
+            try:
+                title = generate_chat_title(session["messages"])
+                session["ai_title"] = title
+                print(f"Generated title for session {request.session_id[:8]}: {title}")
+            except Exception as e:
+                print(f"Error generating title: {e}")
+        
         # Auto-create/update ContextPack every few messages
         if len(session["messages"]) % 4 == 0:  # Create/update pack every 2 exchanges
             pack_result = update_context_pack_from_session(request.session_id, session)
@@ -505,23 +514,95 @@ async def handle_upload(files: List[UploadFile]) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading files: {str(e)}")
 
+def generate_chat_title(messages: List[Dict[str, Any]]) -> str:
+    """Generate an AI-powered title for a chat session."""
+    try:
+        from openai import OpenAI
+        
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            # Fallback to first message if no API key
+            for msg in messages:
+                if isinstance(msg, dict) and msg.get("role") == "user":
+                    content = msg.get("content", "")
+                    return content[:50].strip() + ("..." if len(content) > 50 else "")
+            return "New Chat"
+        
+        # Build conversation summary for title generation
+        conversation_text = ""
+        for msg in messages[:6]:  # Use first 3 exchanges max
+            if isinstance(msg, dict):
+                role = msg.get("role", "unknown")
+                content = msg.get("content", "")
+                if role == "user":
+                    conversation_text += f"User: {content[:200]}\n"
+                elif role == "assistant":
+                    conversation_text += f"Assistant: {content[:200]}\n"
+        
+        if not conversation_text.strip():
+            return "New Chat"
+        
+        client = OpenAI(api_key=api_key)
+        
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{
+                "role": "user", 
+                "content": f"""Generate a concise, descriptive title (3-6 words) for this chat conversation. Focus on the main topic or analysis being discussed:
+
+{conversation_text}
+
+Title should be:
+- 3-6 words maximum
+- Descriptive of the main topic
+- Professional/business focused
+- No quotes or special characters
+
+Examples: "Customer Churn Analysis", "Sales Performance Review", "Database Schema Design"
+
+Title:"""
+            }],
+            max_tokens=20,
+            temperature=0.3
+        )
+        
+        title = response.choices[0].message.content.strip()
+        # Clean up the title
+        title = title.replace('"', '').replace("'", "").strip()
+        
+        # Fallback if title is too long or empty
+        if len(title) > 50 or not title:
+            for msg in messages:
+                if isinstance(msg, dict) and msg.get("role") == "user":
+                    content = msg.get("content", "")
+                    return content[:50].strip() + ("..." if len(content) > 50 else "")
+            return "New Chat"
+        
+        return title
+        
+    except Exception as e:
+        print(f"Error generating chat title: {e}")
+        # Fallback to first message
+        for msg in messages:
+            if isinstance(msg, dict) and msg.get("role") == "user":
+                content = msg.get("content", "")
+                return content[:50].strip() + ("..." if len(content) > 50 else "")
+        return "New Chat"
+
 def get_sessions() -> List[SessionInfo]:
     """List all chat sessions."""
     sessions = []
     for session_id, session_data in chat_sessions.items():
-        # Generate title from first user message
-        title = None
         messages = session_data.get("messages", [])
-        for msg in messages:
-            if isinstance(msg, dict) and msg.get("role") == "user":
-                content = msg.get("content", "")
-                # Take first 50 characters and clean up
-                title = content[:50].strip()
-                if len(content) > 50:
-                    title += "..."
-                break
         
-        if not title:
+        # Use cached title if available, otherwise generate new one
+        if "ai_title" in session_data and session_data["ai_title"]:
+            title = session_data["ai_title"]
+        elif messages:
+            title = generate_chat_title(messages)
+            # Cache the generated title
+            session_data["ai_title"] = title
+        else:
             title = f"Chat {session_id[-8:]}"
         
         sessions.append(SessionInfo(
