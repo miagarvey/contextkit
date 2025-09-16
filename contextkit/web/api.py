@@ -11,11 +11,194 @@ from pathlib import Path
 from fastapi import HTTPException, UploadFile, File
 from pydantic import BaseModel
 from contextkit.core.auto import auto_compose_context
-from contextkit.commands.chat_commands import save_chat_command
-from contextkit.core.utils import now_utc_iso
+from contextkit.commands.chat_commands import save_chat_command, summarize_command
+from contextkit.core.utils import now_utc_iso, load_md, dump_md, hash_string, canonicalize_front
+from contextkit.core.summarize import summarize_chat
+from contextkit.paths import DIRS
+from pathlib import Path
+
+# Ensure we use the correct project root for paths
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+PACK_DIR = PROJECT_ROOT / "packs"
+PACK_DIR.mkdir(parents=True, exist_ok=True)
+from contextkit.storage.index import rebuild_index
+from contextkit.storage.faiss_store import build_faiss
+import re
 
 # In-memory chat sessions (in production, use Redis or database)
 chat_sessions: Dict[str, Dict[str, Any]] = {}
+
+def create_context_pack_from_session(session_id: str, session_data: Dict[str, Any]) -> Optional[str]:
+    """Create a ContextPack from a chat session."""
+    try:
+        messages = session_data.get("messages", [])
+        if not messages:
+            return None
+        
+        # Build markdown content from messages
+        markdown_lines = []
+        markdown_lines.append(f"# Chat Session: {session_data.get('project', 'Unknown Project')}")
+        markdown_lines.append(f"Session ID: {session_id}")
+        markdown_lines.append(f"Created: {session_data.get('created_at', datetime.now()).isoformat()}")
+        markdown_lines.append("")
+        
+        for msg in messages:
+            if isinstance(msg, dict):
+                role = msg.get("role", "unknown")
+                content = msg.get("content", "")
+                timestamp = msg.get("timestamp", "")
+            else:
+                role = msg.role
+                content = msg.content
+                timestamp = msg.timestamp
+            
+            if role == "user":
+                markdown_lines.append(f"## User ({timestamp})")
+                markdown_lines.append(content)
+                markdown_lines.append("")
+            elif role == "assistant":
+                markdown_lines.append(f"## Assistant ({timestamp})")
+                markdown_lines.append(content)
+                markdown_lines.append("")
+        
+        body = "\n".join(markdown_lines)
+        
+        # Create front matter for the chat
+        front = {
+            "type": "chat",
+            "project": session_data.get("project", "web-chat"),
+            "title": f"Web Chat Session {session_id[:8]}",
+            "created_utc": session_data.get("created_at", datetime.now()).isoformat(),
+            "tags": ["web-chat", "auto-saved"]
+        }
+        
+        # Generate pack using summarize_chat
+        pack_text, tokens = summarize_chat(front, body)
+        
+        # Create pack front matter
+        pack_front = {
+            "type": "contextpack",
+            "project": front.get("project"),
+            "title": front.get("title"),
+            "created_utc": now_utc_iso(),
+            "source_session_id": session_id,
+            "tokens_estimate": tokens,
+        }
+        
+        # Compute pack hash
+        canon = canonicalize_front(pack_front, ["project","title","source_session_id"]).decode("utf-8")
+        pack_hash = hash_string((canon + "\n" + pack_text).encode("utf-8").hex())
+        pack_front["hash"] = pack_hash
+        
+        # Create filename
+        slug = re.sub(r"[^a-z0-9-]+", "-", pack_front["title"].lower()).strip("-")
+        pack_file = DIRS["packs"] / f"{slug}--{pack_hash[:12]}.md"
+        
+        # Save pack
+        pack_file.write_text(dump_md(pack_front, pack_text), encoding="utf-8")
+        
+        # Update index
+        rebuild_index()
+        build_faiss()
+        
+        # Store pack info in session
+        session_data["context_pack"] = {
+            "path": str(pack_file),
+            "hash": pack_hash,
+            "title": pack_front["title"]
+        }
+        
+        return f"Created ContextPack: {pack_front['title']} ({pack_hash[:12]})"
+        
+    except Exception as e:
+        print(f"Error creating context pack: {e}")
+        return None
+
+def update_context_pack_from_session(session_id: str, session_data: Dict[str, Any]) -> Optional[str]:
+    """Update an existing ContextPack with new session content."""
+    try:
+        pack_info = session_data.get("context_pack")
+        if not pack_info:
+            # No existing pack, create new one
+            return create_context_pack_from_session(session_id, session_data)
+        
+        pack_path = Path(pack_info["path"])
+        if not pack_path.exists():
+            # Pack file missing, create new one
+            return create_context_pack_from_session(session_id, session_data)
+        
+        # Load existing pack
+        front, existing_body = load_md(pack_path)
+        
+        # Build updated content from current session
+        messages = session_data.get("messages", [])
+        if not messages:
+            return None
+        
+        # Build markdown content from messages
+        markdown_lines = []
+        markdown_lines.append(f"# Chat Session: {session_data.get('project', 'Unknown Project')}")
+        markdown_lines.append(f"Session ID: {session_id}")
+        markdown_lines.append(f"Created: {session_data.get('created_at', datetime.now()).isoformat()}")
+        markdown_lines.append("")
+        
+        for msg in messages:
+            if isinstance(msg, dict):
+                role = msg.get("role", "unknown")
+                content = msg.get("content", "")
+                timestamp = msg.get("timestamp", "")
+            else:
+                role = msg.role
+                content = msg.content
+                timestamp = msg.timestamp
+            
+            if role == "user":
+                markdown_lines.append(f"## User ({timestamp})")
+                markdown_lines.append(content)
+                markdown_lines.append("")
+            elif role == "assistant":
+                markdown_lines.append(f"## Assistant ({timestamp})")
+                markdown_lines.append(content)
+                markdown_lines.append("")
+        
+        body = "\n".join(markdown_lines)
+        
+        # Create front matter for the chat
+        chat_front = {
+            "type": "chat",
+            "project": session_data.get("project", "web-chat"),
+            "title": f"Web Chat Session {session_id[:8]}",
+            "created_utc": session_data.get("created_at", datetime.now()).isoformat(),
+            "tags": ["web-chat", "auto-saved"]
+        }
+        
+        # Generate updated pack content
+        pack_text, tokens = summarize_chat(chat_front, body)
+        
+        # Update front matter
+        front["tokens_estimate"] = tokens
+        front["updated_utc"] = now_utc_iso()
+        
+        # Compute new hash
+        canon = canonicalize_front(front, ["project","title","source_session_id"]).decode("utf-8")
+        new_hash = hash_string((canon + "\n" + pack_text).encode("utf-8").hex())
+        front["hash"] = new_hash
+        
+        # Save updated pack
+        pack_path.write_text(dump_md(front, pack_text), encoding="utf-8")
+        
+        # Update index
+        rebuild_index()
+        build_faiss()
+        
+        # Update session pack info
+        session_data["context_pack"]["hash"] = new_hash
+        
+        return f"Updated ContextPack: {front['title']} ({new_hash[:12]})"
+        
+    except Exception as e:
+        print(f"Error updating context pack: {e}")
+        return None
 
 class ChatMessage(BaseModel):
     role: str  # "user" or "assistant"
@@ -252,6 +435,12 @@ async def handle_chat(request: ChatRequest) -> ChatResponse:
         }
         session["messages"].append(assistant_message)
         
+        # Auto-create/update ContextPack every few messages
+        if len(session["messages"]) % 4 == 0:  # Create/update pack every 2 exchanges
+            pack_result = update_context_pack_from_session(request.session_id, session)
+            if pack_result:
+                print(f"Pack updated: {pack_result}")
+        
         # Auto-save session to ContextKit every few messages
         if len(session["messages"]) % 6 == 0:  # Save every 3 exchanges
             save_result = save_session_to_markdown(request.session_id, session)
@@ -366,14 +555,20 @@ def save_session(session_id: str) -> Dict[str, str]:
 def delete_session(session_id: str) -> Dict[str, str]:
     """Delete a chat session."""
     if session_id in chat_sessions:
-        # Save session before deleting if it has messages
+        # Create/update ContextPack and save session before deleting if it has messages
         session_data = chat_sessions[session_id]
         if session_data.get("messages"):
+            # Create/update ContextPack first
+            pack_result = update_context_pack_from_session(session_id, session_data)
+            if pack_result:
+                print(f"Final pack update: {pack_result}")
+            
+            # Then save session
             save_result = save_session_to_markdown(session_id, session_data)
             if save_result:
                 print(f"Saved session before deletion: {save_result}")
         
         del chat_sessions[session_id]
-        return {"status": "success", "message": "Session deleted and saved to ContextKit"}
+        return {"status": "success", "message": "Session deleted, ContextPack created, and saved to ContextKit"}
     else:
         raise HTTPException(status_code=404, detail="Session not found")
