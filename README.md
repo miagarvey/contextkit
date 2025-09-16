@@ -63,38 +63,3 @@ ctx web
 5. Get insights: the assistant uses both uploaded files and relevant ContextPacks
 6. Access previous chats through the web interface
 
-## Quick start
-
-```bash
-# Install
-uv venv && source .venv/bin/activate
-uv pip install -e .
-
-# Save a chat session
-ctx save-chat --project retail --title "Customer LTV Analysis" --from chat.md
-
-# Create reusable context pack
-ctx summarize chats/2025-09-07--customer-ltv-analysis.md
-
-# Find relevant context
-ctx find "ltv cohort retention"
-
-# Inject into new session
-ctx inject packs/customer-ltv-analysis--abc123.md
-
-# Or use the web interface (recommended!)
-ctx web
-# Then open http://localhost:8000 in your browser
-```
-
-## Commands
-
-- `ctx save-chat` - Ingest markdown chat, extract artifacts, update index
-- `ctx summarize` - Create structured ContextPack from chat
-- `ctx find` - Search chats and packs by content and metadata
-- `ctx inject` - Output copy-pasteable context with provenance
-- `ctx auto` - **Automatically compose relevant context for any prompt**
-- `ctx schema fingerprint` - Snapshot database schema for compatibility tracking
-- `ctx schema-drift` - Detect schema changes and assess ContextPack compatibility
-
-Set `OPENAI_API_KEY` in `.env` for LLM-powered summarization.
